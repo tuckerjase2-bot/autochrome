@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>GoogyGoogy Automation</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 900px; margin: 24px auto; }
+      textarea { width: 100%; height: 220px; }
+      input, select { padding: 6px; }
+      .row { margin-bottom: 8px }
+    </style>
+  </head>
+  <body>
+    <h1>GoogyGoogy — Automation UI</h1>
+
+    <p>
+      Build a plan as JSON in the editor below. Example plan format is shown. You can also
+      ask the GPT helper to generate a plan from a prompt.
+    </p>
+
+    <div class="row">
+      <label for="prompt">Generate plan from prompt (GPT):</label><br/>
+      <input id="prompt" style="width:80%" placeholder="e.g. login to example.com and click dashboard" />
+      <button id="gen">Generate</button>
+    </div>
+
+    <div class="row">
+      <label for="plan">Plan (JSON):</label>
+      <textarea id="plan">{
+  "steps": [
+    { "action": "navigate", "url": "https://example.com" },
+    { "action": "click", "selector": "#btn-signin", "times": 1 },
+    { "action": "input", "selector": "#user", "value": "alice" },
+    { "action": "input", "selector": "#pass", "value": "password" },
+    { "action": "click", "selector": "#submit", "times": 1 },
+    { "action": "wait", "seconds": 2 },
+    { "action": "screenshot", "path": "after.png" }
+  ]
+}</textarea>
+    </div>
+
+    <div class="row">
+      <label><input type="checkbox" id="headless" checked /> Run headless</label>
+    </div>
+
+    <div class="row">
+      <button id="run">Run Plan</button>
+      <button id="status">Status</button>
+    </div>
+
+    <pre id="out" style="background:#f3f3f3;padding:12px;border-radius:6px;min-height:80px"></pre>
+
+    <script>
+      async function postJson(path, obj) {
+        const resp = await fetch(path, {
+          method: 'POST',
+          body: JSON.stringify(obj),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        return resp.json();
+      }
+
+      document.getElementById('run').addEventListener('click', async () => {
+        const planText = document.getElementById('plan').value;
+        let plan;
+        try { plan = JSON.parse(planText); }
+        catch (e) { alert('Invalid JSON in plan'); return; }
+        plan.headless = document.getElementById('headless').checked;
+        await postJson('/run', plan);
+        document.getElementById('out').textContent = 'Plan started';
+      });
+
+      document.getElementById('status').addEventListener('click', async () => {
+        const r = await fetch('/status');
+        const j = await r.json();
+        document.getElementById('out').textContent = JSON.stringify(j, null, 2);
+      });
+
+      document.getElementById('gen').addEventListener('click', async () => {
+        const prompt = document.getElementById('prompt').value;
+        if (!prompt) { alert('Enter a prompt first'); return; }
+        document.getElementById('out').textContent = 'Generating...';
+        const resp = await postJson('/generate', { prompt });
+        document.getElementById('plan').value = JSON.stringify(resp, null, 2);
+        document.getElementById('out').textContent = 'Plan received';
+      });
+    </script>
+  </body>
+</html>
